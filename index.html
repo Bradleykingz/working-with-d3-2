@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<head>
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: "Open Sans", sans-serif;
+    }
+    .country {
+      stroke-width: 1;
+      stroke: darkslategrey;
+      fill: white;
+      transition: all 0.25s ease-in-out;
+    }
+
+    .country:hover {
+      cursor: pointer;
+      fill: #555555;
+    }
+
+    div.tooltip {
+      text-align: center;
+      min-width: 60px;
+      transition: opacity 0.25s ease-in-out;
+      min-height: 28px;
+      padding: 8px 12px;
+      font: 12px sans-serif;
+      background: white;
+      border: 1px solid lightgray;
+      border-radius: 4px;
+      pointer-events: none;
+    }
+
+    button {
+      background: transparent;
+      border: 1px solid lightgray;
+      border-radius: 4px;
+      padding: 4px 16px;
+      transition: all 0.25s ease-in-out;
+    }
+
+    button:hover {
+      cursor: pointer;
+      border: 1px solid darkgray;
+    }
+  </style>
+  <script src="json/world.js"></script>
+  <script src="https://d3js.org/d3.v4.min.js"></script>
+  <script src="https://d3js.org/topojson.v2.min.js"></script>
+  <script src="https://d3js.org/d3-color.v1.min.js"></script>
+  <script src="https://d3js.org/d3-interpolate.v1.min.js"></script>
+  <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+  <script src="https://d3js.org/d3-fetch.v1.min.js"></script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tinycolor/1.4.1/tinycolor.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.15/lodash.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3-tip@0.9.1/dist/index.min.js"></script>
+  <title></title>
+</head>
+<body>
+<h1>Life Expectancy of the World Between 2000-2019</h1>
+<div style="display:flex; align-items: center">
+  <div class="home"></div>
+  <div style="margin-left: 24px">
+    <h2 id="currentYear">2000</h2>
+    <button style="background: rgb(240,246,253)" onclick="subtractYearAndRerender()">
+      <
+    </button>
+
+    <button style="background: rgb(244,249,254)" onclick="addYearAndRerender()">
+      >
+    </button>
+</div>
+
+  </div>
+</body>
+
+<script>
+  function addYearAndRerender() {
+      currentYear  = currentYear + 1;
+      reRender(currentYear);
+  }
+
+  function subtractYearAndRerender() {
+      currentYear = currentYear - 1;
+      reRender(currentYear);
+  }
+</script>
+
+<script>
+    let currentYear = 2000;
+
+    let lifeExpectancyCsv = 'https://raw.githubusercontent.com/Bradleykingz/working-with-d3/master/files/life-expectancy.csv';
+    let worldMapJson = 'https://raw.githubusercontent.com/Bradleykingz/working-with-d3/master/files/world.geo.json'
+
+    const width = 1000;
+    const height = 700;
+
+    const projection = d3.geoMercator()
+        .translate([width / 2, window.innerHeight / 1.4])    // translate to center of screen
+        .scale([150]);
+
+    const path = d3.geoPath().projection(projection);
+
+    let zoom = d3.zoom()
+        .scaleExtent([1, 10])
+        .translateExtent([[-500,-300], [1500, 1000]])
+        .on('zoom', () => {
+            svg.attr('transform', d3.event.transform)
+        });
+
+    const container = d3.select(".home");
+    const svg = container.append("svg");
+
+    const tooltip = d3.tip().attr('class', 'tooltip')
+        .html(function (d) {
+            return `<div>
+                        <p>Country: ${d.entity}</p>
+                        <p>Life expectancy: ${d.lifeExpectancy}</p>
+                    </div>`;
+        });
+
+    svg.attr("width", width)
+        .attr("height", height)
+        .style("border", "1px solid black")
+        .style("background", 'ivory')
+        .call(zoom)
+        .append('g')
+        .call(tooltip);
+
+    const render = (path, data, scale) => svg.selectAll()
+        .data(data)
+        .enter()
+        .append('path')
+        .attr('d', path)
+        .attr('class', 'country')
+        .style('fill', function (d) {
+            return scale(d.lifeExpectancy);
+        }).on('mouseover', function (d) {
+            d3.select(this)
+                .style('fill', tinycolor(scale(d.lifeExpectancy)).darken(10).toString());
+            tooltip.show(d, this)
+        })
+        .on('mouseout', function (d) {
+            d3.select(this)
+                .style('fill', scale(d.lifeExpectancy));
+            tooltip.hide()
+        }).on('mousedown', function (d) {
+            console.log(d.year, d.lifeExpectancy);
+        });
+
+
+    d3.csv(lifeExpectancyCsv).then(data => {
+        let mapData = getYearData(data, currentYear, true);
+
+        let extent = d3.extent(mapData, d => d.lifeExpectancy);
+
+        console.log(extent);
+
+        let colorScale = d3.scaleSequential(d3.interpolateRdYlBu)
+            .domain(extent)
+
+        render(path, mapData, colorScale);
+
+    });
+
+
+    function reRender(year) {
+        d3.csv(lifeExpectancyCsv).then(data => {
+            let mapData = getYearData(data, year, true);
+
+            let extent = d3.extent(mapData, d => d.lifeExpectancy);
+
+            let colorScale = d3.scaleSequential(d3.interpolateRdYlBu)
+                .domain(extent)
+
+            let element = document.getElementById('currentYear');
+            element.innerHTML = year;
+            render(path, mapData, colorScale);
+        });
+    }
+
+    function transformData(data, currentYear) {
+        console.log(data[0]);
+        let newArr = _.map(data, era => ({
+            entity: era['Entity'],
+            lifeExpectancy: +(era['LifeExpectacy']),
+            code: era['Code'],
+            year: +(era['Year'])
+        }));
+
+        return _.filter(newArr, today => {
+            return today['year'] === currentYear;
+        });
+    }
+
+    function getYearData(data, currentYear, transform) {
+        let currentYearArray = [];
+        if (transform) {
+            currentYearArray = transformData(data, currentYear);
+        }
+        else {
+            currentYearArray = data;
+        }
+
+        return _(currentYearArray)
+            .keyBy('code')
+            .merge(_.keyBy(worldMap.features, 'properties.iso_a3'))
+            .values()
+            .value();
+    }
+</script>
