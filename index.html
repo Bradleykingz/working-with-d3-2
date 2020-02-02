@@ -65,7 +65,10 @@
 <body>
 <h1>Life Expectancy of the World Between 2000-2019</h1>
 <div style="display:flex; align-items: center">
-  <div class="home"></div>
+<!--  These styles create the bounding box-->
+  <div style="overflow: hidden; border: 1px solid black; background: ivory">
+    <div class="home"></div>
+  </div>
   <div style="margin-left: 24px">
     <h2 id="currentYear">2000</h2>
     <button style="background: rgb(240,246,253)" onclick="subtractYearAndRerender()">
@@ -127,11 +130,11 @@
 
     svg.attr("width", width)
         .attr("height", height)
-        .style("border", "1px solid black")
         .style("background", 'ivory')
-        .call(zoom)
         .append('g')
         .call(tooltip);
+
+    container.call(zoom);
 
     const render = (path, data, scale) => svg.selectAll()
         .data(data)
@@ -156,32 +159,36 @@
 
 
     d3.csv(lifeExpectancyCsv).then(data => {
-        let mapData = getYearData(data, currentYear, true);
+        d3.json(worldMapJson).then(worldMap => {
+            let mapData = getYearData(data, currentYear, worldMap, true);
 
-        let extent = d3.extent(mapData, d => d.lifeExpectancy);
+            let extent = d3.extent(mapData, d => d.lifeExpectancy);
 
-        console.log(extent);
+            console.log(extent);
 
-        let colorScale = d3.scaleSequential(d3.interpolateRdYlBu)
-            .domain(extent)
+            let colorScale = d3.scaleSequential(d3.interpolateRdYlBu)
+                .domain(extent)
 
-        render(path, mapData, colorScale);
-
+            render(path, mapData, colorScale);
+        });
     });
 
 
     function reRender(year) {
         d3.csv(lifeExpectancyCsv).then(data => {
-            let mapData = getYearData(data, year, true);
+            d3.json(worldMapJson).then(worldMap => {
 
-            let extent = d3.extent(mapData, d => d.lifeExpectancy);
+                let mapData = getYearData(data, year, worldMap, true);
 
-            let colorScale = d3.scaleSequential(d3.interpolateRdYlBu)
-                .domain(extent)
+                let extent = d3.extent(mapData, d => d.lifeExpectancy);
 
-            let element = document.getElementById('currentYear');
-            element.innerHTML = year;
-            render(path, mapData, colorScale);
+                let colorScale = d3.scaleSequential(d3.interpolateRdYlBu)
+                    .domain(extent)
+
+                let element = document.getElementById('currentYear');
+                element.innerHTML = year;
+                render(path, mapData, colorScale);
+            });
         });
     }
 
@@ -199,7 +206,7 @@
         });
     }
 
-    function getYearData(data, currentYear, transform) {
+    function getYearData(data, currentYear, worldMap, transform) {
         let currentYearArray = [];
         if (transform) {
             currentYearArray = transformData(data, currentYear);
